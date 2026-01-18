@@ -2,6 +2,8 @@ package routers
 
 import (
 	"context"
+	"easygin/internal/middlewares"
+	"easygin/internal/models"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,7 +15,10 @@ func handleResult[T any](handler func(c *gin.Context) (T, error)) gin.HandlerFun
 			ctx.Error(err)
 			return
 		}
-		ctx.JSON(200, result)
+
+		requestID := middlewares.GetRequestID(ctx)
+		response := models.SuccessResponse(result, requestID)
+		ctx.JSON(200, response)
 	}
 }
 

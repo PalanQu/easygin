@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"easygin/internal/models"
 	"easygin/pkg/apperror"
 	"fmt"
 	"net/http"
@@ -8,12 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
-
-type ErrorResponse struct {
-	Code    apperror.AppErrorCode `json:"code"`
-	Message string                `json:"message"`
-	Details interface{}           `json:"details,omitempty"`
-}
 
 func ResponseWithErrorContext() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -27,6 +22,8 @@ func ResponseWithErrorContext() gin.HandlerFunc {
 }
 
 func handleError(c *gin.Context, err error) {
+	requestID := GetRequestID(c)
+
 	stackTrace := ""
 	if stackTracer, ok := err.(interface{ StackTrace() errors.StackTrace }); ok {
 		stackTrace = fmt.Sprintf("%+v", stackTracer.StackTrace())
@@ -34,29 +31,19 @@ func handleError(c *gin.Context, err error) {
 
 	var appErr *apperror.AppError
 	if errors.As(err, &appErr) {
-		response := ErrorResponse{
-			Code:    appErr.Code(),
-			Message: appErr.Message(),
-		}
-
-		response.Details = map[string]interface{}{
+		details := map[string]interface{}{
 			"error": appErr.Unwrap().Error(),
 			"stack": stackTrace,
 		}
-
+		response := models.ErrorResponseWithDetails(appErr.Code(), appErr.Message(), requestID, details)
 		c.JSON(appErr.HTTPStatusCode(), response)
 		return
 	}
 
-	response := ErrorResponse{
-		Code:    "UNEXPECTED_ERROR",
-		Message: "An unexpected error occurred",
-	}
-
-	response.Details = map[string]interface{}{
+	details := map[string]interface{}{
 		"error": err.Error(),
 		"stack": stackTrace,
 	}
-
+	response := models.ErrorResponseWithDetails("UNEXPECTED_ERROR", "An unexpected error occurred", requestID, details)
 	c.JSON(http.StatusInternalServerError, response)
 }
