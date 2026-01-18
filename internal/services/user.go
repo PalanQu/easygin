@@ -8,20 +8,17 @@ import (
 	"easygin/pkg/logging"
 	"easygin/pkg/prom"
 
-	"github.com/Depado/ginprom"
 	"github.com/go-sql-driver/mysql"
 	"go.uber.org/zap"
 )
 
 type UserService struct {
-	db      *ent.Client
-	ginprom *ginprom.Prometheus
+	db *ent.Client
 }
 
-func NewUserService(db *ent.Client, ginprom *ginprom.Prometheus) *UserService {
+func NewUserService(db *ent.Client) *UserService {
 	return &UserService{
-		db:      db,
-		ginprom: ginprom,
+		db: db,
 	}
 }
 
@@ -47,9 +44,11 @@ func (s *UserService) GetAllUsers(ctx context.Context) (*models.GetAllUsersRespo
 	dbUsers, err := s.db.User.Query().All(ctx)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok {
-			s.ginprom.IncrementCounterValue(prom.DatabaseErrorTotal, []string{"custom_error_type"})
+			prom.GetInstance().IncrementCounterValue(prom.DatabaseErrorTotal, []string{"custom_error_type"})
+			logger.Error("MySQL error occurred", zap.String("error_message", mysqlErr.Message))
 			return nil, apperror.InternalError("failed to get all users", mysqlErr)
 		}
+		logger.Error("Error occurred while querying users", zap.Error(err))
 		return nil, apperror.InvalidRequest("failed to get all users", err)
 	}
 	users := []*models.User{}

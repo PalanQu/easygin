@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,13 +20,29 @@ func (ck contextKey) String() string {
 }
 
 func init() {
-	config := zap.NewProductionConfig()
-	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339Nano)
-	l, err := config.Build()
+	env := os.Getenv("APP_ENV")
+
+	var logger *zap.Logger
+	var err error
+
+	if env == "production" {
+		config := zap.NewProductionConfig()
+		config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339Nano)
+		config.DisableCaller = false
+		config.DisableStacktrace = false
+		logger, err = config.Build(zap.AddStacktrace(zapcore.ErrorLevel))
+	} else {
+		config := zap.NewDevelopmentConfig()
+		config.DisableCaller = false
+		config.DisableStacktrace = false
+		config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339Nano)
+		logger, err = config.Build(zap.AddStacktrace(zapcore.ErrorLevel))
+	}
+
 	if err != nil {
 		panic(err)
 	}
-	globalLogger = l
+	globalLogger = logger
 }
 
 func GetGlobalLogger() *zap.Logger {

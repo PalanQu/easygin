@@ -2,6 +2,7 @@ package prom
 
 import (
 	"easygin/pkg/logging"
+	"sync"
 
 	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
@@ -38,32 +39,41 @@ var (
 			MetricsType: metricsTypeCounter,
 		},
 	}
+
+	instance *ginprom.Prometheus
+	once     sync.Once
 )
 
-func New(r *gin.Engine) *ginprom.Prometheus {
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(collectors.NewGoCollector())
-	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	p := ginprom.New(
-		ginprom.Engine(r),
-		ginprom.Subsystem("easygin"),
-		ginprom.Path("/metrics"),
-		ginprom.Registry(registry),
-	)
+func Init(r *gin.Engine) *ginprom.Prometheus {
+	once.Do(func() {
+		registry := prometheus.NewRegistry()
+		registry.MustRegister(collectors.NewGoCollector())
+		registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+		instance = ginprom.New(
+			ginprom.Engine(r),
+			ginprom.Subsystem("easygin"),
+			ginprom.Path("/metrics"),
+			ginprom.Registry(registry),
+		)
 
-	for _, metric := range metricsList {
-		switch metric.MetricsType {
-		case metricsTypeCounter:
-			p.AddCustomCounter(metric.MetricsName, metric.Help, metric.Labels)
-		case metricsTypeGauge:
-			p.AddCustomGauge(metric.MetricsName, metric.Help, metric.Labels)
-		case metricsTypeHistogram:
-			p.AddCustomHistogram(metric.MetricsName, metric.Help, metric.Labels)
-		default:
-			logging.GetGlobalLogger().Panic("unknown metrics type",
-				zap.String("metrics_type", string(metric.MetricsType)))
+		for _, metric := range metricsList {
+			switch metric.MetricsType {
+			case metricsTypeCounter:
+				instance.AddCustomCounter(metric.MetricsName, metric.Help, metric.Labels)
+			case metricsTypeGauge:
+				instance.AddCustomGauge(metric.MetricsName, metric.Help, metric.Labels)
+			case metricsTypeHistogram:
+				instance.AddCustomHistogram(metric.MetricsName, metric.Help, metric.Labels)
+			default:
+				logging.GetGlobalLogger().Panic("unknown metrics type",
+					zap.String("metrics_type", string(metric.MetricsType)))
+			}
 		}
-	}
+	})
 
-	return p
+	return instance
+}
+
+func GetInstance() *ginprom.Prometheus {
+	return instance
 }

@@ -8,7 +8,6 @@ import (
 	"easygin/pkg/ent"
 	"easygin/pkg/prom"
 
-	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,13 +15,13 @@ func SetupRouter(routerPrefix string, db *ent.Client) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	p := prom.New(r)
+	p := prom.Init(r)
 	r.Use(p.Instrument())
 	r.Use(middlewares.ResponseWithErrorContext())
 	r.Use(middlewares.LoggerContext())
 
 	registerPingRouters(r)
-	registerUserRouters(routerPrefix, r, db, p)
+	registerUserRouters(routerPrefix, r, db)
 	return r
 }
 
@@ -38,9 +37,8 @@ func registerUserRouters(
 	prefix string,
 	r *gin.Engine,
 	db *ent.Client,
-	ginprom *ginprom.Prometheus,
 ) {
-	userService := services.NewUserService(db, ginprom)
+	userService := services.NewUserService(db)
 	userController := controllers.NewUserController(userService)
 	userGroup := r.Group(prefix + "/users")
 	{
