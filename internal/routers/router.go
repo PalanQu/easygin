@@ -17,6 +17,7 @@ func SetupRouter(routerPrefix string, db *ent.Client) *gin.Engine {
 
 	p := prom.Init(r)
 	r.Use(p.Instrument())
+	r.Use(middlewares.RequestID())
 	r.Use(middlewares.ResponseWithErrorContext())
 	r.Use(middlewares.LoggerContext())
 

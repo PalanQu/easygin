@@ -10,16 +10,17 @@ import (
 func LoggerContext() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		logger := logging.GetGlobalLogger()
-		loggerContextData := map[string]string{}
 
-		// add your custom fields here
-		loggerContextData["foo"] = "bar"
+		// Get request ID from context
+		requestID := GetRequestID(c)
 
-		fields := make([]zap.Field, 0, len(loggerContextData))
-		for k, v := range loggerContextData {
-			fields = append(fields, zap.String(k, v))
-		}
-		contextLogger := logger.With(fields...)
+		// Add request ID to logger fields
+		contextLogger := logger.With(
+			zap.String("request_id", requestID),
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+		)
+
 		requestCtx := c.Request.Context()
 		ctxWithLogger := logging.SetLoggerToContext(requestCtx, contextLogger)
 		c.Request = c.Request.WithContext(ctxWithLogger)
